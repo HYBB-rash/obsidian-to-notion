@@ -1,4 +1,3 @@
-import * as yamlFrontMatter from "yaml-front-matter";
 import * as yaml from "yaml";
 import { TFile, App } from "obsidian";
 import {
@@ -40,6 +39,7 @@ export class Upload2Notion {
 	// 因为需要解析notion的block进行对比，非常的麻烦，
 	// 暂时就直接删除，新建一个page
 	async updatePage(
+		databaseId: string,
 		notionID: string,
 		title: string,
 		allowTags: boolean,
@@ -47,11 +47,12 @@ export class Upload2Notion {
 		childArr: Block[]
 	): Promise<CreatePageResponse> {
 		await this.deletePage(notionID);
-		const res = await this.createPage(title, allowTags, tags, childArr);
+		const res = await this.createPage(databaseId, title, allowTags, tags, childArr);
 		return res;
 	}
 
 	async createPage(
+		databaseId: string,
 		title: string,
 		allowTags: boolean,
 		tags: string[],
@@ -60,7 +61,7 @@ export class Upload2Notion {
 		try {
 			const response = await this.notion.pages.create({
 				parent: {
-					database_id: this.app.settings.databaseID,
+					database_id: databaseId,
 				},
 				properties: {
 					Name: {
@@ -100,6 +101,7 @@ export class Upload2Notion {
 
 		if (notionID) {
 			res = await this.updatePage(
+				yamlObj.databaseId,
 				notionID,
 				title,
 				allowTags,
@@ -107,7 +109,7 @@ export class Upload2Notion {
 				file2Block
 			);
 		} else {
-			res = await this.createPage(title, allowTags, tags, file2Block);
+			res = await this.createPage(yamlObj.databaseId, title, allowTags, tags, file2Block);
 			console.log("create new page res", res);
 		}
 		await this.updateYamlInfo(yamlObj, markdown, nowFile, res, app, settings);

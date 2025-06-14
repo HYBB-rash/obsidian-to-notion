@@ -85,8 +85,8 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 			const upload = new Upload2Notion(this);
 			const yamlObj: yamlObj=
 				yamlFrontMatter.loadFront(markDownData);
-			this.settings.databaseID = this.getDatabaseID(yamlObj);
-			console.log(this.settings.databaseID);
+			yamlObj.databaseId = this.getDatabaseID(yamlObj);
+			console.log(yamlObj.databaseId);
 			try {
 				await upload.syncMarkdownToNotion(
 					basename,
