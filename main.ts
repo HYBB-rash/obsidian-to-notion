@@ -78,6 +78,14 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 	onunload() {}
 
 	async upload(){
+
+		await this.app.plugins.enablePlugin("image-upload-toolkit");
+		const toolkit = this.app.plugins.getPlugin("image-upload-toolkit");
+		if (!toolkit) {
+			new Notice("Please install the image upload toolkit plugin first.");
+			return;
+		}
+		toolkit.publish();
 		const { notionAPI, databaseID, allowTags } = this.settings;
 		if (notionAPI === "" || databaseID === "") {
 			new Notice(

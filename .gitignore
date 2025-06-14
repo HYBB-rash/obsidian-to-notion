@@ -22,3 +22,4 @@ data.json
 .DS_Store
 .history
 yarn.lock
+raaw/database.json
