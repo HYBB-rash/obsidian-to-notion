@@ -223,21 +223,6 @@ class SampleSettingTab extends PluginSettingTab {
 				return t;
 			});
 
-		const notionDatabaseID = new Setting(containerEl)
-			.setName("Database ID")
-			.setDesc("It's a secret")
-			.addText((text) => {
-				let t = text
-					.setPlaceholder("Enter your Database ID")
-					.setValue(this.plugin.settings.databaseID)
-					.onChange(async (value) => {
-						this.plugin.settings.databaseID = value;
-						await this.plugin.saveSettings();
-					});
-				// t.inputEl.type = 'password'
-				return t;
-			});
-
 		// notionDatabaseID.controlEl.querySelector('input').type='password'
 
 		new Setting(containerEl)
