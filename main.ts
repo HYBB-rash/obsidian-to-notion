@@ -40,33 +40,38 @@ const DEFAULT_SETTINGS: PluginSettings = {
 export default class ObsidianSyncNotionPlugin extends Plugin {
 	settings: PluginSettings;
 	async onload() {
-		await this.loadSettings();
-		addIcons();
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon(
-			"notion-logo",
-			"Share to notion",
-			async (evt: MouseEvent) => {
-				// Called when the user clicks the icon.
-				this.upload();
-			}
-		);
+		try {
+			await this.loadSettings();
+			addIcons();
+			// This creates an icon in the left ribbon.
+			const ribbonIconEl = this.addRibbonIcon(
+				"notion-logo",
+				"Share to notion",
+				async (evt: MouseEvent) => {
+					// Called when the user clicks the icon.
+					this.upload();
+				}
+			);
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		// statusBarItemEl.setText("share to notion");
+			// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
+			const statusBarItemEl = this.addStatusBarItem();
+			// statusBarItemEl.setText("share to notion");
 
-		this.addCommand({
-			id: "share-to-notion",
-			name: "share to notion",
-			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				this.upload()
-			},
-		});
+			this.addCommand({
+				id: "share-to-notion",
+				name: "share to notion",
+				editorCallback: async (editor: Editor, view: MarkdownView) => {
+					this.upload()
+				},
+			});
 
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+			// This adds a settings tab so the user can configure various aspects of the plugin
+			this.addSettingTab(new SampleSettingTab(this.app, this));
+		} catch (error) {
+			console.error("Error loading plugin settings:", error);
+			new Notice(error.message || "Failed to load plugin settings");
+		}
 
 	}
 
@@ -74,24 +79,25 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 
 	async upload(){
 		const { notionAPI, databaseID, allowTags } = this.settings;
-				if (notionAPI === "" || databaseID === "") {
-					new Notice(
-						"Please set up the notion API and database ID in the settings tab."
-					);
-					return;
-				}
-				const { markDownData, nowFile, tags } =await this.getNowFileMarkdownContent(this.app);
+		if (notionAPI === "" || databaseID === "") {
+			new Notice(
+				"Please set up the notion API and database ID in the settings tab."
+			);
+			return;
+		}
+		const { markDownData, nowFile, tags } =await this.getNowFileMarkdownContent(this.app);
 
-				if (markDownData) {
-					const { basename } = nowFile;
-					const upload = new Upload2Notion(this);
-					const res = await upload.syncMarkdownToNotion(basename, allowTags, tags, markDownData, nowFile, this.app, this.settings)
-					if(res.status === 200){
-						new Notice(`${langConfig["sync-success"]}${basename}`)
-					}else {
-						new Notice(`${langConfig["sync-fail"]}${basename}`, 5000)
-					}
-				}
+		if (markDownData) {
+			const { basename } = nowFile;
+			const upload = new Upload2Notion(this);
+			try {
+				const res = await upload.syncMarkdownToNotion(basename, allowTags, tags, markDownData, nowFile, this.app, this.settings);
+				console.log("sync response:", res);
+				new Notice(`${langConfig["sync-success"]}${basename}`);
+			} catch (error) {
+				new Notice(`${langConfig["sync-fail"]}${basename}`, 5000)
+			}
+		}
 	}
 
 	async getNowFileMarkdownContent(app: App) {
@@ -152,7 +158,9 @@ class SampleSettingTab extends PluginSettingTab {
 			.setName("Proxy Setting")
 			.setDesc("Proxy Settings Agent")
 			.addText((text) => {
-				let t = text.setPlaceholder("Enter your http proxy agent, like: http://127.0.0.1:8899").onChange(async (value) => {
+				let t = text.setPlaceholder("Enter your http proxy agent, like: http://127.0.0.1:8899")
+				.setValue(this.plugin.settings.proxy)
+				.onChange(async (value) => {
 					this.plugin.settings.proxy = value;
 					await this.plugin.saveSettings();
 				})

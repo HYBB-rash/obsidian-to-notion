@@ -1,4 +1,4 @@
-import { Notice, requestUrl,TFile,normalizePath, App } from "obsidian";
+import { requestUrl,TFile,normalizePath, App } from "obsidian";
 import { Client } from "@notionhq/client";
 import { markdownToBlocks,  } from "@tryfabric/martian";
 import * as yamlFrontMatter from "yaml-front-matter";
@@ -25,16 +25,16 @@ const obsidianFetch: typeof fetch = async (input, init = {}) => {
 		});
 	} catch (e) {
 		console.error("Request failed:", e.status ?? e.code, 'err msg:', e.message);
-		new Notice("Request failed:" + (e.status ?? e.code) +'err msg:'+e.message)
-
+		
 		if (e.body) {
 			const bodyText = typeof e.body === "string"
 			? e.body
 			: Buffer.isBuffer(e.body) ? e.body.toString("utf8") : "";
 			console.error("Error body:", bodyText);
 		}
-
-		throw new Error(`Request failed: ${e.status ?? e.code} ${e.message}`);
+		
+		throw e;
+		// throw new Error(`Request failed: ${e.status ?? e.code} ${e.message}`);
 	}
 
 
@@ -72,25 +72,30 @@ export class Upload2Notion {
 	}
 
 	async createPage(title:string, allowTags:boolean, tags:string[], childArr: any) {
-		const response = await this.notion.pages.create({
-			parent: {
-				database_id: this.app.settings.databaseID,
-			},
-			properties: {
-				Name: {
-					type: "rich_text",
-					rich_text: [
-						{
-							type: "text",
-							text: {
-								content: title,
-							},
-						},
-					],
+		try{
+			const response = await this.notion.pages.create({
+				parent: {
+					database_id: this.app.settings.databaseID,
 				},
-			},
-		})
-		return response;
+				properties: {
+					Name: {
+						type: "title",
+						title: [
+							{
+								type: "text",
+								text: {
+									content: title,
+								},
+							},
+						],
+					},
+				},
+			})
+			return response;
+		} catch (error) {
+			throw  new Error(`创建页面失败: ${error.message}`);
+		}
+		
 	}
 
 	async syncMarkdownToNotion(title:string, allowTags:boolean, tags:string[], markdown: string, nowFile: TFile, app:App, settings:any): Promise<any> {
@@ -100,7 +105,6 @@ export class Upload2Notion {
 		const file2Block = markdownToBlocks(__content);
 		const frontmasster =await app.metadataCache.getFileCache(nowFile)?.frontmatter
 		const notionID = frontmasster ? frontmasster.notionID : null
-
 		if(notionID){
 			res = await this.updatePage(notionID, title, allowTags, tags, file2Block);
 		} else {
@@ -125,7 +129,7 @@ export class Upload2Notion {
 		try {
 			await navigator.clipboard.writeText(url)
 		} catch (error) {
-			new Notice(`复制链接失败，请手动复制${error}`)
+			throw new Error(`复制链接失败，请手动复制${error}`)
 		}
 		yamlObj.notionID = id;
 		const __content = yamlObj.__content;
@@ -139,7 +143,7 @@ export class Upload2Notion {
 		try {
 			await nowFile.vault.modify(nowFile, content)
 		} catch (error) {
-			new Notice(`write file error ${error}`)
+			throw new Error(`write file error ${error}`)
 		}
 	}
 }
