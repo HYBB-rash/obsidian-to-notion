@@ -14,6 +14,7 @@ const obsidianFetch: typeof fetch = async (input, init = {}) => {
 			method: init.method ?? "GET",
 			headers: init.headers as Record<string, string>,
 			body: init.body as any,
+			// @ts-ignore
 			agent: init.agent as any,
 			// 不写 throw，默认就是 true
 		});
@@ -90,6 +91,7 @@ export class Upload2Notion {
 						],
 					},
 				},
+				children: childArr,
 			})
 			return response;
 		} catch (error) {
