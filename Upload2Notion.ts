@@ -4,24 +4,61 @@ import { markdownToBlocks,  } from "@tryfabric/martian";
 import * as yamlFrontMatter from "yaml-front-matter";
 import * as yaml from "yaml"
 import MyPlugin from "main";
+
+import { HttpsProxyAgent } from "https-proxy-agent";
+
+const obsidianFetch: typeof fetch = async (input, init = {}) => {
+	try {
+		const res = await requestUrl({
+			url: typeof input === "string" ? input : input.toString(),
+			method: init.method ?? "GET",
+			headers: init.headers as Record<string, string>,
+			body: init.body as any,
+			agent: init.agent as any,
+			// 不写 throw，默认就是 true
+		});
+
+		return new Response(res.arrayBuffer, {
+			status: res.status,
+			// statusText: res.status,
+			headers: res.headers
+		});
+	} catch (e) {
+		console.error("Request failed:", e.status ?? e.code, 'err msg:', e.message);
+		new Notice("Request failed:" + (e.status ?? e.code) +'err msg:'+e.message)
+
+		if (e.body) {
+			const bodyText = typeof e.body === "string"
+			? e.body
+			: Buffer.isBuffer(e.body) ? e.body.toString("utf8") : "";
+			console.error("Error body:", bodyText);
+		}
+
+		throw new Error(`Request failed: ${e.status ?? e.code} ${e.message}`);
+	}
+
+
+
+};
+
 export class Upload2Notion {
 	app: MyPlugin;
 	notion: Client;
 	agent: any;
+
 	constructor(app: MyPlugin) {
 		this.app = app;
+		this.agent = new HttpsProxyAgent(this.app.settings.proxy);
+		this.notion = new Client({
+			auth: this.app.settings.notionAPI,
+			fetch: obsidianFetch,
+			agent: this.agent ,
+		});
 	}
 
 	async deletePage(notionID:string){
-		const response = await requestUrl({
-			url: `https://api.notion.com/v1/blocks/${notionID}`,
-			method: 'DELETE',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': 'Bearer ' + this.app.settings.notionAPI,
-				'Notion-Version': '2022-02-22',
-			},
-			body: ''
+		const response = this.notion.blocks.delete({
+			block_id:  notionID
 		})
 		return response;
 	}
@@ -35,54 +72,25 @@ export class Upload2Notion {
 	}
 
 	async createPage(title:string, allowTags:boolean, tags:string[], childArr: any) {
-		const bodyString:any = {
+		const response = await this.notion.pages.create({
 			parent: {
-				database_id: this.app.settings.databaseID
+				database_id: this.app.settings.databaseID,
 			},
 			properties: {
 				Name: {
-					title: [
+					type: "rich_text",
+					rich_text: [
 						{
+							type: "text",
 							text: {
 								content: title,
 							},
 						},
 					],
 				},
-				Tags: {
-					multi_select: allowTags && tags !== undefined ? tags.map(tag => {
-						return {"name": tag}
-					}) : [],
-				},
 			},
-			children: childArr,
-		}
-
-		if(this.app.settings.bannerUrl) {
-			bodyString.cover = {
-				type: "external",
-				external: {
-					url: this.app.settings.bannerUrl
-				}
-			}
-		}
-
-		try {
-			const response = await requestUrl({
-				url: `https://api.notion.com/v1/pages`,
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					// 'User-Agent': 'obsidian.md',
-					'Authorization': 'Bearer ' + this.app.settings.notionAPI,
-					'Notion-Version': '2021-08-16',
-				},
-				body: JSON.stringify(bodyString),
-			})
-			return response;
-		} catch (error) {
-				new Notice(`network error ${error}`)
-		}
+		})
+		return response;
 	}
 
 	async syncMarkdownToNotion(title:string, allowTags:boolean, tags:string[], markdown: string, nowFile: TFile, app:App, settings:any): Promise<any> {
@@ -94,21 +102,19 @@ export class Upload2Notion {
 		const notionID = frontmasster ? frontmasster.notionID : null
 
 		if(notionID){
-				res = await this.updatePage(notionID, title, allowTags, tags, file2Block);
+			res = await this.updatePage(notionID, title, allowTags, tags, file2Block);
 		} else {
-			 	res = await this.createPage(title, allowTags, tags, file2Block);
+			res = await this.createPage(title, allowTags, tags, file2Block);
+			console.log("create new page res", res);
 		}
-		if (res.status === 200) {
-			await this.updateYamlInfo(markdown, nowFile, res, app, settings)
-		} else {
-			new Notice(`${res.text}`)
-		}
+		await this.updateYamlInfo(markdown, nowFile, res, app, settings)
+
 		return res
 	}
 
 	async updateYamlInfo(yamlContent: string, nowFile: TFile, res: any,app:App, settings:any) {
 		const yamlObj:any = yamlFrontMatter.loadFront(yamlContent);
-		let {url, id} = res.json
+		let {url, id} = res
 		// replace www to notionID
 		const {notionID} = settings;
 		if(notionID!=="") {

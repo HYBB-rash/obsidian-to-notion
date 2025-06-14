@@ -82,7 +82,6 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 				}
 				const { markDownData, nowFile, tags } =await this.getNowFileMarkdownContent(this.app);
 
-
 				if (markDownData) {
 					const { basename } = nowFile;
 					const upload = new Upload2Notion(this);
@@ -148,6 +147,17 @@ class SampleSettingTab extends PluginSettingTab {
 		containerEl.createEl("h2", {
 			text: "Settings for obsidian to notion plugin.",
 		});
+
+		new Setting(containerEl)
+			.setName("Proxy Setting")
+			.setDesc("Proxy Settings Agent")
+			.addText((text) => {
+				let t = text.setPlaceholder("Enter your http proxy agent, like: http://127.0.0.1:8899").onChange(async (value) => {
+					this.plugin.settings.proxy = value;
+					await this.plugin.saveSettings();
+				})
+				return t
+			});
 
 		new Setting(containerEl)
 			.setName("Notion API Token")
