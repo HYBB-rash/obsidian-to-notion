@@ -1,53 +1,14 @@
-import { requestUrl, TFile, PluginSettingTab, App } from "obsidian";
-import {  BlockObjectRequest, Client } from "@notionhq/client";
-import { markdownToBlocks } from "@tryfabric/martian";
 import * as yamlFrontMatter from "yaml-front-matter";
 import * as yaml from "yaml";
-import MyPlugin from "main";
-
+import { TFile, App } from "obsidian";
+import { BlockObjectRequest, Client } from "@notionhq/client";
+import { markdownToBlocks } from "@tryfabric/martian";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { PluginSettings } from "types";
 import { Block } from "@tryfabric/martian/build/src/notion";
 
-const obsidianFetch: typeof fetch = async (input, init = {}) => {
-	try {
-		const res = await requestUrl({
-			url: typeof input === "string" ? input : input.toString(),
-			method: init.method ?? "GET",
-			headers: init.headers as Record<string, string>,
-			body: init.body as string | ArrayBuffer,
-			// @ts-ignore
-			agent: init.agent as HttpsProxyAgent | undefined,
-			// 不写 throw，默认就是 true
-		});
-
-		return new Response(res.arrayBuffer, {
-			status: res.status,
-			// statusText: res.status,
-			headers: res.headers,
-		});
-	} catch (e) {
-		console.error(
-			"Request failed:",
-			e.status ?? e.code,
-			"err msg:",
-			e.message
-		);
-
-		if (e.body) {
-			const bodyText =
-				typeof e.body === "string"
-					? e.body
-					: Buffer.isBuffer(e.body)
-					? e.body.toString("utf8")
-					: "";
-			console.error("Error body:", bodyText);
-		}
-
-		throw e;
-		// throw new Error(`Request failed: ${e.status ?? e.code} ${e.message}`);
-	}
-};
+import MyPlugin from "main";
+import { obsidianFetch } from "utils";
 
 export class Upload2Notion {
 	app: MyPlugin;
@@ -126,7 +87,8 @@ export class Upload2Notion {
 		settings: PluginSettings
 	): Promise<any> {
 		let res: unknown;
-		const yamlObj: { [key: string]: unknown; __content: string; } = yamlFrontMatter.loadFront(markdown);
+		const yamlObj: { [key: string]: unknown; __content: string } =
+			yamlFrontMatter.loadFront(markdown);
 		const __content = yamlObj.__content;
 		const file2Block = markdownToBlocks(__content);
 		const frontmasster = await app.metadataCache.getFileCache(nowFile)
@@ -156,7 +118,8 @@ export class Upload2Notion {
 		app: App,
 		settings: PluginSettings
 	) {
-		const yamlObj: Record<string, any> = yamlFrontMatter.loadFront(yamlContent);
+		const yamlObj: Record<string, any> =
+			yamlFrontMatter.loadFront(yamlContent);
 
 		let { url, id } = res;
 		// replace www to notionID
