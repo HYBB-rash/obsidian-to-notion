@@ -9,7 +9,7 @@ import {
 } from "@notionhq/client";
 import { markdownToBlocks } from "@tryfabric/martian";
 import { HttpsProxyAgent } from "https-proxy-agent";
-import { PluginSettings } from "types";
+import { PluginSettings, yamlObj } from "types";
 import { Block } from "@tryfabric/martian/build/src/notion";
 
 import MyPlugin from "main";
@@ -86,16 +86,14 @@ export class Upload2Notion {
 		title: string,
 		allowTags: boolean,
 		tags: string[],
+		yamlObj: yamlObj,
 		markdown: string,
 		nowFile: TFile,
 		app: App,
 		settings: PluginSettings
 	): Promise<CreatePageResponse> {
 		let res: CreatePageResponse;
-		const yamlObj: { [key: string]: unknown; __content: string } =
-			yamlFrontMatter.loadFront(markdown);
-		const __content = yamlObj.__content;
-		const file2Block = markdownToBlocks(__content);
+		const file2Block = markdownToBlocks(markdown);
 		const frontmasster = await app.metadataCache.getFileCache(nowFile)
 			?.frontmatter;
 		const notionID = frontmasster ? frontmasster.notionID : null;
@@ -123,10 +121,7 @@ export class Upload2Notion {
 		app: App,
 		settings: PluginSettings
 	) {
-		const yamlObj: {
-			[key: string]: unknown;
-			__content: string;
-		} = yamlFrontMatter.loadFront(yamlContent);
+		const yamlObj: yamlObj = yamlFrontMatter.loadFront(yamlContent);
 
 		// eslint-disable-next-line prefer-const
 		let { url, id } = res as PageObjectResponse;

@@ -1,3 +1,4 @@
+import * as yamlFrontMatter from "yaml-front-matter";
 import {
 	App,
 	Editor,
@@ -7,6 +8,7 @@ import {
 	Setting,
 	PluginSettingTab,
 } from "obsidian";
+
 import { addIcons } from "icon";
 import { Upload2Notion } from "Upload2Notion";
 import { NoticeMConfig } from "Message";
@@ -81,17 +83,19 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 		if (markDownData) {
 			const { basename } = nowFile;
 			const upload = new Upload2Notion(this);
+			const yamlObj: { [key: string]: unknown; __content: string } =
+				yamlFrontMatter.loadFront(markDownData);
 			try {
-				const res = await upload.syncMarkdownToNotion(
+				await upload.syncMarkdownToNotion(
 					basename,
 					allowTags,
 					tags,
-					markDownData,
+					yamlObj,
+					yamlObj.__content,
 					nowFile,
 					this.app,
 					this.settings
 				);
-				console.log("sync response:", res);
 				new Notice(`${langConfig["sync-success"]}${basename}`);
 			} catch (error) {
 				new Notice(`${langConfig["sync-fail"]}${basename}`, 5000);
