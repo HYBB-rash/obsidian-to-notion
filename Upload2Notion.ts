@@ -1,11 +1,13 @@
-import { requestUrl, TFile, normalizePath, App } from "obsidian";
-import { Client } from "@notionhq/client";
+import { requestUrl, TFile, PluginSettingTab, App } from "obsidian";
+import {  BlockObjectRequest, Client } from "@notionhq/client";
 import { markdownToBlocks } from "@tryfabric/martian";
 import * as yamlFrontMatter from "yaml-front-matter";
 import * as yaml from "yaml";
 import MyPlugin from "main";
 
 import { HttpsProxyAgent } from "https-proxy-agent";
+import { PluginSettings } from "types";
+import { Block } from "@tryfabric/martian/build/src/notion";
 
 const obsidianFetch: typeof fetch = async (input, init = {}) => {
 	try {
@@ -13,9 +15,9 @@ const obsidianFetch: typeof fetch = async (input, init = {}) => {
 			url: typeof input === "string" ? input : input.toString(),
 			method: init.method ?? "GET",
 			headers: init.headers as Record<string, string>,
-			body: init.body as any,
+			body: init.body as string | ArrayBuffer,
 			// @ts-ignore
-			agent: init.agent as any,
+			agent: init.agent as HttpsProxyAgent | undefined,
 			// 不写 throw，默认就是 true
 		});
 
@@ -50,7 +52,7 @@ const obsidianFetch: typeof fetch = async (input, init = {}) => {
 export class Upload2Notion {
 	app: MyPlugin;
 	notion: Client;
-	agent: any;
+	agent: HttpsProxyAgent;
 
 	constructor(app: MyPlugin) {
 		this.app = app;
@@ -76,15 +78,10 @@ export class Upload2Notion {
 		title: string,
 		allowTags: boolean,
 		tags: string[],
-		childArr: any
+		childArr: Block[]
 	) {
 		await this.deletePage(notionID);
-		const res = await this.createPage(
-			title,
-			allowTags,
-			tags,
-			childArr
-		);
+		const res = await this.createPage(title, allowTags, tags, childArr);
 		return res;
 	}
 
@@ -92,7 +89,7 @@ export class Upload2Notion {
 		title: string,
 		allowTags: boolean,
 		tags: string[],
-		childArr: any
+		childArr: Block[]
 	) {
 		try {
 			const response = await this.notion.pages.create({
@@ -112,14 +109,13 @@ export class Upload2Notion {
 						],
 					},
 				},
-				children: childArr,
+				children: childArr as BlockObjectRequest[],
 			});
 			return response;
 		} catch (error) {
 			throw new Error(`创建页面失败: ${error.message}`);
 		}
 	}
-
 	async syncMarkdownToNotion(
 		title: string,
 		allowTags: boolean,
@@ -127,10 +123,10 @@ export class Upload2Notion {
 		markdown: string,
 		nowFile: TFile,
 		app: App,
-		settings: any
+		settings: PluginSettings
 	): Promise<any> {
-		let res: any;
-		const yamlObj: any = yamlFrontMatter.loadFront(markdown);
+		let res: unknown;
+		const yamlObj: { [key: string]: unknown; __content: string; } = yamlFrontMatter.loadFront(markdown);
 		const __content = yamlObj.__content;
 		const file2Block = markdownToBlocks(__content);
 		const frontmasster = await app.metadataCache.getFileCache(nowFile)
@@ -146,12 +142,7 @@ export class Upload2Notion {
 				file2Block
 			);
 		} else {
-			res = await this.createPage(
-				title,
-				allowTags,
-				tags,
-				file2Block
-			);
+			res = await this.createPage(title, allowTags, tags, file2Block);
 			console.log("create new page res", res);
 		}
 		await this.updateYamlInfo(markdown, nowFile, res, app, settings);
@@ -163,9 +154,8 @@ export class Upload2Notion {
 		nowFile: TFile,
 		res: any,
 		app: App,
-		settings: any
+		settings: PluginSettings
 	) {
-
 		const yamlObj: Record<string, any> = yamlFrontMatter.loadFront(yamlContent);
 
 		let { url, id } = res;

@@ -2,31 +2,22 @@ import {
 	App,
 	Editor,
 	MarkdownView,
-	Modal,
 	Notice,
 	Plugin,
-	PluginSettingTab,
 	Setting,
-	normalizePath
+	PluginSettingTab,
 } from "obsidian";
-import {addIcons}  from 'icon';
+import { addIcons } from "icon";
 import { Upload2Notion } from "Upload2Notion";
-import {NoticeMConfig} from "Message";
-import { CLIENT_RENEG_LIMIT } from "tls";
-
+import { NoticeMConfig } from "Message";
+import { slient } from "utils";
+import { PluginSettings } from "types";
 
 // Remember to rename these classes and interfaces!
 
-interface PluginSettings {
-	notionAPI: string;
-	databaseID: string;
-	bannerUrl: string;
-	notionID: string;
-	proxy: string;
-	allowTags: boolean;
-}
-
-const langConfig =  NoticeMConfig( window.localStorage.getItem('language') || 'en')
+const langConfig = NoticeMConfig(
+	window.localStorage.getItem("language") || "en"
+);
 
 const DEFAULT_SETTINGS: PluginSettings = {
 	notionAPI: "",
@@ -34,7 +25,7 @@ const DEFAULT_SETTINGS: PluginSettings = {
 	bannerUrl: "",
 	notionID: "",
 	proxy: "",
-	allowTags: false
+	allowTags: false,
 };
 
 export default class ObsidianSyncNotionPlugin extends Plugin {
@@ -44,7 +35,7 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 			await this.loadSettings();
 			addIcons();
 			// This creates an icon in the left ribbon.
-			const ribbonIconEl = this.addRibbonIcon(
+			this.addRibbonIcon(
 				"notion-logo",
 				"Share to notion",
 				async (evt: MouseEvent) => {
@@ -54,17 +45,16 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 			);
 
 			// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-			const statusBarItemEl = this.addStatusBarItem();
+			this.addStatusBarItem();
 			// statusBarItemEl.setText("share to notion");
 
 			this.addCommand({
 				id: "share-to-notion",
 				name: "share to notion",
 				editorCallback: async (editor: Editor, view: MarkdownView) => {
-					this.upload()
+					this.upload();
 				},
 			});
-
 
 			// This adds a settings tab so the user can configure various aspects of the plugin
 			this.addSettingTab(new SampleSettingTab(this.app, this));
@@ -72,20 +62,12 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 			console.error("Error loading plugin settings:", error);
 			new Notice(error.message || "Failed to load plugin settings");
 		}
-
 	}
 
 	onunload() {}
 
-	async upload(){
-
-		await this.app.plugins.enablePlugin("image-upload-toolkit");
-		const toolkit = this.app.plugins.getPlugin("image-upload-toolkit");
-		if (!toolkit) {
-			new Notice("Please install the image upload toolkit plugin first.");
-			return;
-		}
-		toolkit.publish();
+	async upload() {
+		slient(this.uploadPicture.bind(this));
 		const { notionAPI, databaseID, allowTags } = this.settings;
 		if (notionAPI === "" || databaseID === "") {
 			new Notice(
@@ -93,27 +75,52 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 			);
 			return;
 		}
-		const { markDownData, nowFile, tags } =await this.getNowFileMarkdownContent(this.app);
+		const { markDownData, nowFile, tags } =
+			await this.getNowFileMarkdownContent(this.app);
 
 		if (markDownData) {
 			const { basename } = nowFile;
 			const upload = new Upload2Notion(this);
 			try {
-				const res = await upload.syncMarkdownToNotion(basename, allowTags, tags, markDownData, nowFile, this.app, this.settings);
+				const res = await upload.syncMarkdownToNotion(
+					basename,
+					allowTags,
+					tags,
+					markDownData,
+					nowFile,
+					this.app,
+					this.settings
+				);
 				console.log("sync response:", res);
 				new Notice(`${langConfig["sync-success"]}${basename}`);
 			} catch (error) {
-				new Notice(`${langConfig["sync-fail"]}${basename}`, 5000)
+				new Notice(`${langConfig["sync-fail"]}${basename}`, 5000);
 			}
+		}
+	}
+
+	private async uploadPicture() {
+		try {
+			const toolkit = this.app.plugins.getPlugin("image-upload-toolkit");
+			if (!toolkit) {
+				new Notice(
+					"Please install the image upload toolkit plugin first."
+				);
+				return;
+			}
+			toolkit.publish();
+		} catch (error) {
+			console.error("Error uploading picture:", error);
+			new Notice("Failed to upload picture. Please try again.");
 		}
 	}
 
 	async getNowFileMarkdownContent(app: App) {
 		const nowFile = app.workspace.getActiveFile();
 		const { allowTags } = this.settings;
-		let tags = []
+		let tags = [];
 		try {
-			if(allowTags) {
+			if (allowTags) {
 				tags = app.metadataCache.getFileCache(nowFile).frontmatter.tags;
 			}
 		} catch (error) {
@@ -124,7 +131,7 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 			return {
 				markDownData,
 				nowFile,
-				tags
+				tags,
 			};
 		} else {
 			new Notice(langConfig["open-file"]);
@@ -166,53 +173,55 @@ class SampleSettingTab extends PluginSettingTab {
 			.setName("Proxy Setting")
 			.setDesc("Proxy Settings Agent")
 			.addText((text) => {
-				let t = text.setPlaceholder("Enter your http proxy agent, like: http://127.0.0.1:8899")
-				.setValue(this.plugin.settings.proxy)
-				.onChange(async (value) => {
-					this.plugin.settings.proxy = value;
-					await this.plugin.saveSettings();
-				})
-				return t
+				let t = text
+					.setPlaceholder(
+						"Enter your http proxy agent, like: http://127.0.0.1:8899"
+					)
+					.setValue(this.plugin.settings.proxy)
+					.onChange(async (value) => {
+						this.plugin.settings.proxy = value;
+						await this.plugin.saveSettings();
+					});
+				return t;
 			});
 
 		new Setting(containerEl)
 			.setName("Notion API Token")
 			.setDesc("It's a secret")
-			.addText((text) =>{
+			.addText((text) => {
 				let t = text
-				.setPlaceholder("Enter your Notion API Token")
-				.setValue(this.plugin.settings.notionAPI)
-				.onChange(async (value) => {
-					this.plugin.settings.notionAPI = value;
-					await this.plugin.saveSettings();
-				})
+					.setPlaceholder("Enter your Notion API Token")
+					.setValue(this.plugin.settings.notionAPI)
+					.onChange(async (value) => {
+						this.plugin.settings.notionAPI = value;
+						await this.plugin.saveSettings();
+					});
 				// t.inputEl.type = 'password'
-				return t
+				return t;
 			});
-
 
 		const notionDatabaseID = new Setting(containerEl)
 			.setName("Database ID")
 			.setDesc("It's a secret")
 			.addText((text) => {
 				let t = text
-				.setPlaceholder("Enter your Database ID")
-				.setValue(this.plugin.settings.databaseID)
-				.onChange(async (value) => {
-					this.plugin.settings.databaseID = value;
-					await this.plugin.saveSettings();
-				})
+					.setPlaceholder("Enter your Database ID")
+					.setValue(this.plugin.settings.databaseID)
+					.onChange(async (value) => {
+						this.plugin.settings.databaseID = value;
+						await this.plugin.saveSettings();
+					});
 				// t.inputEl.type = 'password'
-				return t
-			}
+				return t;
+			});
 
-			);
+		// notionDatabaseID.controlEl.querySelector('input').type='password'
 
-			// notionDatabaseID.controlEl.querySelector('input').type='password'
-
-			new Setting(containerEl)
+		new Setting(containerEl)
 			.setName("Banner url(optional)")
-			.setDesc("page banner url(optional), default is empty, if you want to show a banner, please enter the url(like:https://raw.githubusercontent.com/EasyChris/obsidian-to-notion/ae7a9ac6cf427f3ca338a409ce6967ced9506f12/doc/2.png)")
+			.setDesc(
+				"page banner url(optional), default is empty, if you want to show a banner, please enter the url(like:https://raw.githubusercontent.com/EasyChris/obsidian-to-notion/ae7a9ac6cf427f3ca338a409ce6967ced9506f12/doc/2.png)"
+			)
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter banner pic url: ")
@@ -223,10 +232,11 @@ class SampleSettingTab extends PluginSettingTab {
 					})
 			);
 
-
-			new Setting(containerEl)
+		new Setting(containerEl)
 			.setName("Notion ID(optional)")
-			.setDesc("Your notion ID(optional),share link likes:https://username.notion.site/,your notion id is [username]")
+			.setDesc(
+				"Your notion ID(optional),share link likes:https://username.notion.site/,your notion id is [username]"
+			)
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter notion ID(options) ")
@@ -237,10 +247,11 @@ class SampleSettingTab extends PluginSettingTab {
 					})
 			);
 
-
-			new Setting(containerEl)
+		new Setting(containerEl)
 			.setName("Convert tags(optional)")
-			.setDesc("Transfer the Obsidian tags to the Notion table. It requires the column with the name 'Tags'")
+			.setDesc(
+				"Transfer the Obsidian tags to the Notion table. It requires the column with the name 'Tags'"
+			)
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.allowTags)
@@ -249,6 +260,5 @@ class SampleSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-
 	}
 }
