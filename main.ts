@@ -23,7 +23,6 @@ const langConfig = NoticeMConfig(
 
 const DEFAULT_SETTINGS: PluginSettings = {
 	notionAPI: "",
-	databaseID: "",
 	bannerUrl: "",
 	notionID: "",
 	proxy: "",
@@ -70,8 +69,8 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 
 	async upload() {
 		slient(this.uploadPicture.bind(this));
-		const { notionAPI, databaseID, allowTags } = this.settings;
-		if (notionAPI === "" || databaseID === "") {
+		const { notionAPI, allowTags } = this.settings;
+		if (notionAPI === "") {
 			new Notice(
 				"Please set up the notion API and database ID in the settings tab."
 			);
@@ -86,7 +85,10 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 			const yamlObj: yamlObj=
 				yamlFrontMatter.loadFront(markDownData);
 			yamlObj.databaseId = this.getDatabaseID(yamlObj);
-			console.log(yamlObj.databaseId);
+
+			if (!yamlObj.databaseId) {
+				new Notice("Please set up the database url in page yaml.")
+			}
 			try {
 				await upload.syncMarkdownToNotion(
 					basename,
