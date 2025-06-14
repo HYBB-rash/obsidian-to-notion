@@ -1,7 +1,12 @@
 import * as yamlFrontMatter from "yaml-front-matter";
 import * as yaml from "yaml";
 import { TFile, App } from "obsidian";
-import { BlockObjectRequest, Client } from "@notionhq/client";
+import {
+	BlockObjectRequest,
+	Client,
+	CreatePageResponse,
+	PageObjectResponse,
+} from "@notionhq/client";
 import { markdownToBlocks } from "@tryfabric/martian";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { PluginSettings } from "types";
@@ -40,7 +45,7 @@ export class Upload2Notion {
 		allowTags: boolean,
 		tags: string[],
 		childArr: Block[]
-	) {
+	): Promise<CreatePageResponse> {
 		await this.deletePage(notionID);
 		const res = await this.createPage(title, allowTags, tags, childArr);
 		return res;
@@ -51,7 +56,7 @@ export class Upload2Notion {
 		allowTags: boolean,
 		tags: string[],
 		childArr: Block[]
-	) {
+	): Promise<CreatePageResponse> {
 		try {
 			const response = await this.notion.pages.create({
 				parent: {
@@ -85,8 +90,8 @@ export class Upload2Notion {
 		nowFile: TFile,
 		app: App,
 		settings: PluginSettings
-	): Promise<any> {
-		let res: unknown;
+	): Promise<CreatePageResponse> {
+		let res: CreatePageResponse;
 		const yamlObj: { [key: string]: unknown; __content: string } =
 			yamlFrontMatter.loadFront(markdown);
 		const __content = yamlObj.__content;
@@ -114,14 +119,18 @@ export class Upload2Notion {
 	async updateYamlInfo(
 		yamlContent: string,
 		nowFile: TFile,
-		res: any,
+		res: CreatePageResponse,
 		app: App,
 		settings: PluginSettings
 	) {
-		const yamlObj: Record<string, any> =
-			yamlFrontMatter.loadFront(yamlContent);
+		const yamlObj: {
+			[key: string]: unknown;
+			__content: string;
+		} = yamlFrontMatter.loadFront(yamlContent);
 
-		let { url, id } = res;
+		// eslint-disable-next-line prefer-const
+		let { url, id } = res as PageObjectResponse;
+
 		// replace www to notionID
 		const { notionID } = settings;
 		if (notionID !== "") {
