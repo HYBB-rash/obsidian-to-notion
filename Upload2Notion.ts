@@ -110,19 +110,18 @@ export class Upload2Notion {
 			res = await this.createPage(title, allowTags, tags, file2Block);
 			console.log("create new page res", res);
 		}
-		await this.updateYamlInfo(markdown, nowFile, res, app, settings);
+		await this.updateYamlInfo(yamlObj, markdown, nowFile, res, app, settings);
 
 		return res;
 	}
 	async updateYamlInfo(
+		yamlObj: yamlObj,
 		yamlContent: string,
 		nowFile: TFile,
 		res: CreatePageResponse,
 		app: App,
 		settings: PluginSettings
 	) {
-		const yamlObj: yamlObj = yamlFrontMatter.loadFront(yamlContent);
-
 		// eslint-disable-next-line prefer-const
 		let { url, id } = res as PageObjectResponse;
 

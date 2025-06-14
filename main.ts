@@ -13,7 +13,7 @@ import { addIcons } from "icon";
 import { Upload2Notion } from "Upload2Notion";
 import { NoticeMConfig } from "Message";
 import { slient } from "utils";
-import { PluginSettings } from "types";
+import { PluginSettings, yamlObj } from "types";
 
 // Remember to rename these classes and interfaces!
 
@@ -83,8 +83,10 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 		if (markDownData) {
 			const { basename } = nowFile;
 			const upload = new Upload2Notion(this);
-			const yamlObj: { [key: string]: unknown; __content: string } =
+			const yamlObj: yamlObj=
 				yamlFrontMatter.loadFront(markDownData);
+			this.settings.databaseID = this.getDatabaseID(yamlObj);
+			console.log(this.settings.databaseID);
 			try {
 				await upload.syncMarkdownToNotion(
 					basename,
@@ -99,6 +101,23 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 				new Notice(`${langConfig["sync-success"]}${basename}`);
 			} catch (error) {
 				new Notice(`${langConfig["sync-fail"]}${basename}`, 5000);
+			}
+		}
+	}
+
+	/**
+	 * 
+	 * @param yamlObj yamlObj markdonw yaml front matter object
+	 * @description 读取yamlObj中的 database 的 notion url，抽取出 databaseID 到 settings 中
+	 * @return {string | undefined} 返回抽取出的 databaseID
+	 */
+	private getDatabaseID(yamlObj: yamlObj) : string | undefined {
+		if (yamlObj.NotionDatabaseUrl) {
+			const notionUrl = yamlObj.NotionDatabaseUrl as string;
+			const pathName = new URL(notionUrl).pathname;
+			const databaseID = pathName.split("/").pop();
+			if (databaseID) {
+				return databaseID;
 			}
 		}
 	}
