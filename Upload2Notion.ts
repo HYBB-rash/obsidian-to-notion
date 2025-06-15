@@ -43,7 +43,7 @@ export class Upload2Notion {
 	async updatePage(
 		databaseId: string,
 		notionID: string,
-		title: string,
+		yamlObj: yamlObj,
 		allowTags: boolean,
 		tags: string[],
 		childArr: Block[]
@@ -51,7 +51,7 @@ export class Upload2Notion {
 		await this.deletePage(notionID);
 		const res = await this.createPage(
 			databaseId,
-			title,
+			yamlObj,
 			allowTags,
 			tags,
 			childArr
@@ -61,29 +61,19 @@ export class Upload2Notion {
 
 	async createPage(
 		databaseId: string,
-		title: string,
+		yamlObj: yamlObj,
 		allowTags: boolean,
 		tags: string[],
 		childArr: Block[]
 	): Promise<CreatePageResponse> {
 		try {
+			const submitProperties = await this.buildNotionPropertiesByYaml(yamlObj);
+			console.log("submitProperties", submitProperties);
 			const response = await this.notion.pages.create({
 				parent: {
 					database_id: databaseId,
 				},
-				properties: {
-					Name: {
-						type: "title",
-						title: [
-							{
-								type: "text",
-								text: {
-									content: title,
-								},
-							},
-						],
-					},
-				},
+				properties: submitProperties,
 				children: childArr as BlockObjectRequest[],
 			});
 			return response;
@@ -111,7 +101,7 @@ export class Upload2Notion {
 			res = await this.updatePage(
 				yamlObj.databaseId,
 				notionID,
-				title,
+				yamlObj,
 				allowTags,
 				tags,
 				file2Block
@@ -119,7 +109,7 @@ export class Upload2Notion {
 		} else {
 			res = await this.createPage(
 				yamlObj.databaseId,
-				title,
+				yamlObj,
 				allowTags,
 				tags,
 				file2Block
@@ -174,6 +164,106 @@ export class Upload2Notion {
 			await nowFile.vault.modify(nowFile, content);
 		} catch (error) {
 			throw new Error(`write file error ${error}`);
+		}
+	}
+
+	async buildNotionPropertiesByYaml(
+		yamlObj: yamlObj
+	): Promise<Record<string, any>> {
+
+		const properties = (await this.notion.databases.retrieve({
+			database_id: yamlObj.databaseId,
+		}))?.properties;
+
+		if (!properties) {
+			throw new Error("No properties found in the database.");
+		}
+
+		const list = Object.keys(properties).map((customName) => {
+			return [customName, this.buildPropertyObject(customName, properties[customName].type, yamlObj)];
+		});
+
+		return Object.fromEntries(list);
+	}
+
+	private buildPropertyObject(customName: string, customType: string, customValues: Record<string, any>) {
+		const value = customValues[customName] || '';
+
+		switch (customType) {
+			case "title":
+				return {
+					title: [
+						{
+							text: {
+								content: value,
+							},
+						},
+					],
+				};
+			case "rich_text":
+				return {
+					rich_text: [
+						{
+							text: {
+								content: value || '',
+							},
+						},
+					],
+				};
+			case "date":
+				return {
+					date: {
+						start: value || new Date().toISOString(),
+					},
+				};
+			case "number":
+				return {
+					number: Number(value),
+				};
+			case "phone_number":
+				return {
+					phone_number: value,
+				};
+			case "email":
+				return {
+					email: value,
+				};
+			case "url":
+				return {
+					url: value,
+				};
+			case "files":
+				return {
+					files: Array.isArray(value) ? value.map(url => ({
+						name: url,
+						type: "external",
+						external: {
+							url: url,
+						},
+					})) : [
+						{
+							name: value,
+							type: "external",
+							external: {
+								url: value,
+							},
+						},
+					],
+				};
+			case "checkbox":
+				return {
+					checkbox: Boolean(value) || false,
+				};
+			case "select":
+				return {
+					select: {
+						name: value,
+					},
+				};
+			case "multi_select":
+				return {
+					multi_select: Array.isArray(value) ? value.map(item => ({name: item})) : [{name: value}],
+				};
 		}
 	}
 }
