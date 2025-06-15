@@ -1,18 +1,5 @@
 import { requestUrl } from "obsidian";
 
-/**
- * 
- * @param fn - 一个可能会抛出异常，但我们希望在调用时忽略异常的函数。
- * @returns 
- */
-export function slient(fn: () => unknown): unknown | undefined {
-    try {
-        return fn();
-    } catch (e) {
-        e;
-    }
-}
-
 export const obsidianFetch: typeof fetch = async (input, init = {}) => {
     try {
         const res = await requestUrl({

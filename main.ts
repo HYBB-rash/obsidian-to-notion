@@ -68,7 +68,6 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 	onunload() {}
 
 	async upload() {
-		slient(this.uploadPicture.bind(this));
 		const { notionAPI, allowTags } = this.settings;
 		if (notionAPI === "") {
 			new Notice(
@@ -121,22 +120,6 @@ export default class ObsidianSyncNotionPlugin extends Plugin {
 			if (databaseID) {
 				return databaseID;
 			}
-		}
-	}
-
-	private async uploadPicture() {
-		try {
-			const toolkit = this.app.plugins.getPlugin("image-upload-toolkit");
-			if (!toolkit) {
-				new Notice(
-					"Please install the image upload toolkit plugin first."
-				);
-				return;
-			}
-			toolkit.publish();
-		} catch (error) {
-			console.error("Error uploading picture:", error);
-			new Notice("Failed to upload picture. Please try again.");
 		}
 	}
 
