@@ -15,15 +15,17 @@ import MyPlugin from "main";
 import { obsidianFetch } from "utils";
 
 export class Upload2Notion {
-	app: MyPlugin;
+	app: App;
+	plugin: MyPlugin;
 	notion: Client;
 	agent: HttpsProxyAgent;
 
-	constructor(app: MyPlugin) {
-		this.app = app;
-		this.agent = new HttpsProxyAgent(this.app.settings.proxy);
+	constructor(plugin: MyPlugin) {
+		this.app = plugin.app;
+		this.plugin = plugin;
+		this.agent = new HttpsProxyAgent(this.plugin.settings.proxy);
 		this.notion = new Client({
-			auth: this.app.settings.notionAPI,
+			auth: this.plugin.settings.notionAPI,
 			fetch: obsidianFetch,
 			agent: this.agent,
 		});
@@ -47,7 +49,13 @@ export class Upload2Notion {
 		childArr: Block[]
 	): Promise<CreatePageResponse> {
 		await this.deletePage(notionID);
-		const res = await this.createPage(databaseId, title, allowTags, tags, childArr);
+		const res = await this.createPage(
+			databaseId,
+			title,
+			allowTags,
+			tags,
+			childArr
+		);
 		return res;
 	}
 
@@ -109,10 +117,23 @@ export class Upload2Notion {
 				file2Block
 			);
 		} else {
-			res = await this.createPage(yamlObj.databaseId, title, allowTags, tags, file2Block);
+			res = await this.createPage(
+				yamlObj.databaseId,
+				title,
+				allowTags,
+				tags,
+				file2Block
+			);
 			console.log("create new page res", res);
 		}
-		await this.updateYamlInfo(yamlObj, markdown, nowFile, res, app, settings);
+		await this.updateYamlInfo(
+			yamlObj,
+			markdown,
+			nowFile,
+			res,
+			app,
+			settings
+		);
 
 		return res;
 	}
